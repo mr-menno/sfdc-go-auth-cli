@@ -7,12 +7,19 @@ Requirements:
 - REQ-3: returns a JSON with an access token, refresh token, and instance URL
 - REQ-4: leverage a stable CLI framework to ensure that the CLI is well-structured, maintainable, and has the right ability to accept flags and arguments
 - REQ-5: include automated tests to ensure the application is robust and reliable
+- REQ-6: all code must pass linting validation (golangci-lint) with zero errors before considering any development work complete
 
 Build Automation:
 
 - BUILD-1: include automation to build via github actions automatic releases which are stored as artifacts for download
 - BUILD-2: include a Makefile to build the application locally
 - BUILD-3: release this as a zipped binary for Windows, Mac, and Linux.
+
+Quality Assurance:
+
+- QA-1: all code changes must pass golangci-lint validation with zero errors
+- QA-2: linting must be integrated into CI/CD pipeline to prevent merging of non-compliant code
+- QA-3: development workflow must include linting as a mandatory step before considering any work complete
 
 Docs:
 

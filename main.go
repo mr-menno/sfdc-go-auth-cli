@@ -139,7 +139,9 @@ func runAuth(cmd *cobra.Command, args []string) {
 	// Shutdown server
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	server.Shutdown(ctx)
+	if err := server.Shutdown(ctx); err != nil {
+		log.Printf("Server shutdown error: %v", err)
+	}
 
 	if authError != "" {
 		log.Fatalf("OAuth error: %s", authError)
@@ -206,7 +208,12 @@ func getClientCredentials() error {
 
 func generateState() string {
 	b := make([]byte, 32)
-	rand.Read(b)
+	if _, err := rand.Read(b); err != nil {
+		// Fallback to timestamp-based state if random generation fails
+		fallback := make([]byte, 0, 32)
+		fallback = fmt.Appendf(fallback, "state_%d", time.Now().UnixNano())
+		return base64.URLEncoding.EncodeToString(fallback)
+	}
 	return base64.URLEncoding.EncodeToString(b)
 }
 
@@ -252,14 +259,16 @@ func handleCallback(w http.ResponseWriter, r *http.Request) {
 	// Send success response
 	w.Header().Set("Content-Type", "text/html")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(`
+	if _, err := w.Write([]byte(`
 		<html>
 			<body>
 				<h2>Authentication Successful!</h2>
 				<p>You can close this window and return to your terminal.</p>
 			</body>
 		</html>
-	`))
+	`)); err != nil {
+		log.Printf("Error writing response: %v", err)
+	}
 }
 
 func exchangeCodeForTokens(code string) (*SalesforceOAuthResponse, error) {
@@ -274,7 +283,11 @@ func exchangeCodeForTokens(code string) (*SalesforceOAuthResponse, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error making token request: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if resp != nil && resp.Body != nil {
+			resp.Body.Close()
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("token request failed with status: %d", resp.StatusCode)
