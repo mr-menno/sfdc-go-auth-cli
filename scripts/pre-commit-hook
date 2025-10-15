@@ -1,0 +1,44 @@
+#!/bin/bash
+
+# Git Pre-commit Hook for Salesforce OAuth CLI
+# This hook ensures all code passes quality checks before committing
+#
+# To install this hook:
+#   cp scripts/pre-commit-hook .git/hooks/pre-commit
+#   chmod +x .git/hooks/pre-commit
+
+set -e
+
+echo "🔍 Running pre-commit quality checks..."
+
+# Check if we're in the right directory
+if [ ! -f "main.go" ] || [ ! -f "Makefile" ]; then
+    echo "❌ This doesn't appear to be the Salesforce OAuth CLI project root"
+    exit 1
+fi
+
+# Run formatting
+echo "  📝 Formatting code..."
+if ! make fmt > /dev/null 2>&1; then
+    echo "❌ Code formatting failed"
+    exit 1
+fi
+
+# Run tests
+echo "  🧪 Running tests..."
+if ! make test > /dev/null 2>&1; then
+    echo "❌ Tests failed"
+    echo "   Run 'make test' to see detailed output"
+    exit 1
+fi
+
+# Run linting (MANDATORY)
+echo "  🔍 Running linter (MANDATORY - zero errors required)..."
+if ! make lint > /dev/null 2>&1; then
+    echo "❌ Linting failed - COMMIT BLOCKED"
+    echo "   Run 'make lint' to see detailed output"
+    echo "   All linting errors must be fixed before committing"
+    exit 1
+fi
+
+echo "✅ All quality checks passed! Proceeding with commit..."

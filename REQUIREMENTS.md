@@ -8,6 +8,7 @@ Requirements:
 - REQ-4: leverage a stable CLI framework to ensure that the CLI is well-structured, maintainable, and has the right ability to accept flags and arguments
 - REQ-5: include automated tests to ensure the application is robust and reliable
 - REQ-6: all code must pass linting validation (golangci-lint) with zero errors before considering any development work complete
+- REQ-7: allow specifying of a custom salesforce domain (i.e. company.my.salesforce.com) to use for login instead of login.salesforce.com
 
 Build Automation:
 

@@ -6,7 +6,7 @@ LDFLAGS=-ldflags="-s -w -X main.version=${VERSION} -X main.buildTime=${BUILD_TIM
 
 # Default target
 .PHONY: all
-all: clean test build
+all: clean test lint build
 
 # Clean build artifacts
 .PHONY: clean
@@ -47,10 +47,17 @@ deps:
 	go mod download
 	go mod tidy
 
-# Run linter
+# Run linter (MANDATORY - zero errors required)
 .PHONY: lint
 lint:
-	golangci-lint run
+	@echo "🔍 Running golangci-lint (zero errors required)..."
+	@if command -v golangci-lint >/dev/null 2>&1; then \
+		golangci-lint run --timeout=5m; \
+	else \
+		echo "❌ golangci-lint not found. Install with: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest"; \
+		exit 1; \
+	fi
+	@echo "✅ Linting passed!"
 
 # Format code
 .PHONY: fmt
@@ -85,6 +92,11 @@ release: build-all
 		fi; \
 	done
 
+# Pre-commit validation (runs all quality checks)
+.PHONY: pre-commit
+pre-commit: fmt test lint
+	@echo "✅ All quality checks passed! Ready to commit."
+
 # Development setup
 .PHONY: dev-setup
 dev-setup:
@@ -102,11 +114,12 @@ help:
 	@echo "  build        - Build for current platform"
 	@echo "  build-all    - Build for all platforms"
 	@echo "  deps         - Install dependencies"
-	@echo "  lint         - Run linter"
+	@echo "  lint         - Run linter (MANDATORY - zero errors required)"
 	@echo "  fmt          - Format code"
 	@echo "  run          - Build and run the application"
 	@echo "  docker-build - Build Docker image"
 	@echo "  docker-run   - Build and run Docker container"
 	@echo "  release      - Create release archives"
+	@echo "  pre-commit   - Run all quality checks (fmt, test, lint)"
 	@echo "  dev-setup    - Set up development environment"
 	@echo "  help         - Show this help message"

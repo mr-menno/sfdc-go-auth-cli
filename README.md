@@ -14,12 +14,15 @@ A robust, production-ready Go command-line application that authenticates with S
 - ✅ **REQ-3**: Clean JSON output with access token, refresh token, and instance URL
 - ✅ **REQ-4**: Built with Cobra CLI framework for professional command-line experience
 - ✅ **REQ-5**: Comprehensive automated test suite with coverage reporting
-- ✅ **REQ-6**: GitHub Actions CI/CD with automated releases and multi-platform builds
-- ✅ **REQ-7**: Complete documentation and usage examples
+- ✅ **REQ-6**: All code passes linting validation (golangci-lint) with zero errors
+- ✅ **REQ-7**: Custom Salesforce domain support for organizations with custom domains
+- ✅ **BUILD-1**: GitHub Actions CI/CD with automated releases and multi-platform builds
+- ✅ **DOCS-1**: Complete documentation and usage examples
 
 ### 🚀 Additional Features
 
 - **Multi-platform support**: Linux, macOS, Windows (x64 and ARM64)
+- **Custom domain support**: Works with custom Salesforce domains (e.g., company.my.salesforce.com)
 - **Docker support**: Containerized deployment option
 - **Security focused**: Hidden password input, state parameter validation, HTTPS endpoints
 - **Professional CLI**: Help system, flag validation, error handling
@@ -33,6 +36,7 @@ A robust, production-ready Go command-line application that authenticates with S
    - OAuth settings enabled
    - Callback URL set to: `http://localhost:8080/callback` (or your custom port)
    - Required OAuth scopes: `full` and `refresh_token`
+   - **Note**: For custom domains, ensure your Connected App is configured in the correct Salesforce org
 
 ## 📦 Installation
 
@@ -98,8 +102,11 @@ You can also provide credentials and options via command-line flags:
 # Use a different port for the callback server
 ./sfdc-auth --port 9090
 
-# Quiet mode (suppress informational output)
-./sfdc-auth --quiet
+# Use a custom Salesforce domain (for organizations with custom domains)
+./sfdc-auth --domain "company.my.salesforce.com"
+
+# Combine multiple options
+./sfdc-auth --domain "company.my.salesforce.com" --port 9090 --quiet
 
 # Get help
 ./sfdc-auth --help
@@ -109,18 +116,40 @@ You can also provide credentials and options via command-line flags:
 
 - `-c, --client-id`: Salesforce Client ID (Consumer Key)
 - `-s, --client-secret`: Salesforce Client Secret (Consumer Secret)
+- `-d, --domain`: Salesforce domain (default: login.salesforce.com)
 - `-p, --port`: Port for OAuth callback server (default: 8080)
 - `-q, --quiet`: Suppress informational output
 - `-h, --help`: Show help information
+
+### Custom Domain Support
+
+For organizations using custom Salesforce domains (My Domain), specify your domain using the `--domain` flag:
+
+```bash
+# Standard Salesforce login
+./sfdc-auth --domain "login.salesforce.com"  # This is the default
+
+# Custom domain examples
+./sfdc-auth --domain "company.my.salesforce.com"
+./sfdc-auth --domain "acme.my.salesforce.com"
+./sfdc-auth --domain "test.sandbox.my.salesforce.com"  # Sandbox with custom domain
+```
+
+**Important Notes for Custom Domains:**
+
+- Ensure your Connected App is configured in the correct Salesforce org
+- The domain should be the full domain without `https://` prefix
+- Custom domains typically follow the pattern: `[company].my.salesforce.com`
+- Sandbox domains may include additional identifiers: `[company].[sandbox].my.salesforce.com`
 
 ### Authentication Flow
 
 The application will:
 
 1. Start a local server on the specified port (default: `localhost:8080`)
-2. Display an authorization URL
+2. Display an authorization URL (using your specified domain)
 3. Open your browser to that URL (or copy/paste it manually)
-4. Wait for the OAuth callback
+4. Wait for the OAuth callback from Salesforce
 
 After successful authentication, the application outputs JSON with your tokens:
 
@@ -168,10 +197,11 @@ The application handles various error scenarios:
 git clone https://github.com/mr-menno/sfdc-go-auth-cli.git
 cd sfdc-go-auth-cli
 
-# Set up development environment
-make dev-setup
+# Quick setup (recommended)
+./scripts/setup-dev.sh
 
-# Install dependencies
+# OR manual setup
+make dev-setup
 make deps
 ```
 
@@ -183,8 +213,9 @@ make build              # Build for current platform
 make build-all          # Build for all platforms
 make test               # Run tests
 make test-coverage      # Run tests with coverage report
-make lint               # Run linter
+make lint               # Run linter (MANDATORY - zero errors required)
 make fmt                # Format code
+make pre-commit         # Run all quality checks (fmt, test, lint)
 make run                # Build and run the application
 make docker-build       # Build Docker image
 make docker-run         # Build and run Docker container
@@ -208,13 +239,33 @@ docker run --rm -v "$PWD":/usr/src/app -w /usr/src/app golang:1.20 go test -v ./
 
 ### Code Quality
 
-The project uses several tools to maintain code quality:
+The project enforces strict code quality standards:
 
-- **golangci-lint**: Comprehensive linting
-- **go fmt**: Code formatting
-- **go vet**: Static analysis
+- **golangci-lint**: Comprehensive linting with **zero tolerance** for errors
+- **go fmt**: Automatic code formatting
+- **go vet**: Static analysis for common issues
 - **go test -race**: Race condition detection
 - **Coverage reporting**: Test coverage tracking
+- **Mandatory linting**: All code changes must pass linting before completion
+
+#### Linting Requirements
+
+**🚨 CRITICAL**: All code must pass `golangci-lint` validation with **zero errors** before any development work is considered complete.
+
+```bash
+# Run linting locally (requires golangci-lint installation)
+make lint
+
+# Install golangci-lint
+go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+
+# Run linting manually
+golangci-lint run --timeout=5m
+
+# Optional: Install git pre-commit hook to enforce linting
+cp scripts/pre-commit-hook .git/hooks/pre-commit
+chmod +x .git/hooks/pre-commit
+```
 
 ### Project Structure
 
@@ -222,6 +273,8 @@ The project uses several tools to maintain code quality:
 .
 ├── .github/
 │   └── workflows/          # GitHub Actions CI/CD
+├── scripts/
+│   └── setup-dev.sh       # Development environment setup
 ├── main.go                 # Main application code
 ├── main_test.go           # Test suite
 ├── go.mod                 # Go module definition
@@ -229,6 +282,7 @@ The project uses several tools to maintain code quality:
 ├── Dockerfile             # Docker container definition
 ├── Makefile              # Build automation
 ├── .gitignore            # Git ignore rules
+├── LICENSE               # MIT license
 └── README.md             # This file
 ```
 
@@ -281,6 +335,9 @@ docker run -it --rm -p 8080:8080 ghcr.io/mr-menno/sfdc-go-auth-cli:latest
 
 # Run with flags
 docker run -it --rm -p 9090:9090 ghcr.io/mr-menno/sfdc-go-auth-cli:latest --port 9090 --quiet
+
+# Run with custom domain
+docker run -it --rm -p 8080:8080 ghcr.io/mr-menno/sfdc-go-auth-cli:latest --domain "company.my.salesforce.com"
 ```
 
 ### Build Locally
@@ -298,11 +355,23 @@ make docker-run
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
 3. Make your changes
-4. Run tests (`make test`)
-5. Run linting (`make lint`)
-6. Commit your changes (`git commit -m 'Add amazing feature'`)
-7. Push to the branch (`git push origin feature/amazing-feature`)
-8. Open a Pull Request
+4. **🚨 MANDATORY**: Run tests (`make test`) - all tests must pass
+5. **🚨 MANDATORY**: Run linting (`make lint`) - zero errors required
+6. Run formatting (`make fmt`)
+7. Commit your changes (`git commit -m 'Add amazing feature'`)
+8. Push to the branch (`git push origin feature/amazing-feature`)
+9. Open a Pull Request
+
+### Quality Gates
+
+All contributions must pass these quality gates:
+
+- ✅ **Tests**: All existing and new tests must pass
+- ✅ **Linting**: Zero golangci-lint errors (enforced in CI)
+- ✅ **Formatting**: Code must be properly formatted (`go fmt`)
+- ✅ **Coverage**: Maintain or improve test coverage
+
+**Note**: The CI pipeline will automatically reject any pull requests that fail linting validation.
 
 ## 📄 License
 

@@ -30,8 +30,9 @@ func TestBuildAuthURL(t *testing.T) {
 	// Set test values
 	clientID = "test_client_id"
 	state = "test_state"
+	testDomain := "login.salesforce.com"
 
-	authURL := buildAuthURL()
+	authURL := buildAuthURL(testDomain)
 
 	// Parse the URL
 	parsedURL, err := url.Parse(authURL)
@@ -109,27 +110,89 @@ func TestSalesforceOAuthResponseStructure(t *testing.T) {
 
 func TestConstants(t *testing.T) {
 	// Test that constants are properly defined
-	if salesforceAuthURL == "" {
-		t.Error("salesforceAuthURL should not be empty")
-	}
-	if salesforceTokenURL == "" {
-		t.Error("salesforceTokenURL should not be empty")
+	if defaultSalesforceDomain == "" {
+		t.Error("defaultSalesforceDomain should not be empty")
 	}
 	if defaultPort == "" {
 		t.Error("defaultPort should not be empty")
 	}
 
-	// Test that URLs are valid
-	if !strings.HasPrefix(salesforceAuthURL, "https://") {
-		t.Error("salesforceAuthURL should use HTTPS")
+	// Test that URL functions work correctly
+	testDomain := "login.salesforce.com"
+	authURL := getSalesforceAuthURL(testDomain)
+	tokenURL := getSalesforceTokenURL(testDomain)
+
+	if authURL == "" {
+		t.Error("getSalesforceAuthURL should not return empty string")
 	}
-	if !strings.HasPrefix(salesforceTokenURL, "https://") {
-		t.Error("salesforceTokenURL should use HTTPS")
+	if tokenURL == "" {
+		t.Error("getSalesforceTokenURL should not return empty string")
+	}
+
+	// Test that URLs are valid
+	if !strings.HasPrefix(authURL, "https://") {
+		t.Error("Auth URL should use HTTPS")
+	}
+	if !strings.HasPrefix(tokenURL, "https://") {
+		t.Error("Token URL should use HTTPS")
+	}
+
+	// Test custom domain
+	customDomain := "company.my.salesforce.com"
+	customAuthURL := getSalesforceAuthURL(customDomain)
+	customTokenURL := getSalesforceTokenURL(customDomain)
+
+	expectedAuthURL := "https://company.my.salesforce.com/services/oauth2/authorize"
+	expectedTokenURL := "https://company.my.salesforce.com/services/oauth2/token"
+
+	if customAuthURL != expectedAuthURL {
+		t.Errorf("Expected auth URL %s, got %s", expectedAuthURL, customAuthURL)
+	}
+	if customTokenURL != expectedTokenURL {
+		t.Errorf("Expected token URL %s, got %s", expectedTokenURL, customTokenURL)
 	}
 
 	// Test default port format
 	if defaultPort != "8080" {
 		t.Error("defaultPort should be 8080")
+	}
+}
+
+func TestSalesforceURLFunctions(t *testing.T) {
+	tests := []struct {
+		domain           string
+		expectedAuthURL  string
+		expectedTokenURL string
+	}{
+		{
+			domain:           "login.salesforce.com",
+			expectedAuthURL:  "https://login.salesforce.com/services/oauth2/authorize",
+			expectedTokenURL: "https://login.salesforce.com/services/oauth2/token",
+		},
+		{
+			domain:           "company.my.salesforce.com",
+			expectedAuthURL:  "https://company.my.salesforce.com/services/oauth2/authorize",
+			expectedTokenURL: "https://company.my.salesforce.com/services/oauth2/token",
+		},
+		{
+			domain:           "test.sandbox.my.salesforce.com",
+			expectedAuthURL:  "https://test.sandbox.my.salesforce.com/services/oauth2/authorize",
+			expectedTokenURL: "https://test.sandbox.my.salesforce.com/services/oauth2/token",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.domain, func(t *testing.T) {
+			authURL := getSalesforceAuthURL(tt.domain)
+			tokenURL := getSalesforceTokenURL(tt.domain)
+
+			if authURL != tt.expectedAuthURL {
+				t.Errorf("getSalesforceAuthURL(%s) = %s, want %s", tt.domain, authURL, tt.expectedAuthURL)
+			}
+			if tokenURL != tt.expectedTokenURL {
+				t.Errorf("getSalesforceTokenURL(%s) = %s, want %s", tt.domain, tokenURL, tt.expectedTokenURL)
+			}
+		})
 	}
 }
 
@@ -153,6 +216,7 @@ func TestCLIFlags(t *testing.T) {
 	flagClientID = ""
 	flagClientSecret = ""
 	flagPort = defaultPort
+	flagDomain = defaultSalesforceDomain
 	flagQuiet = false
 
 	// Test that flags are properly defined
@@ -173,6 +237,11 @@ func TestCLIFlags(t *testing.T) {
 		t.Error("port flag should be defined")
 	}
 
+	domainFlag := flags.Lookup("domain")
+	if domainFlag == nil {
+		t.Error("domain flag should be defined")
+	}
+
 	quietFlag := flags.Lookup("quiet")
 	if quietFlag == nil {
 		t.Error("quiet flag should be defined")
@@ -181,6 +250,9 @@ func TestCLIFlags(t *testing.T) {
 	// Test default values
 	if portFlag.DefValue != defaultPort {
 		t.Errorf("Expected port default value '%s', got '%s'", defaultPort, portFlag.DefValue)
+	}
+	if domainFlag.DefValue != defaultSalesforceDomain {
+		t.Errorf("Expected domain default value '%s', got '%s'", defaultSalesforceDomain, domainFlag.DefValue)
 	}
 }
 

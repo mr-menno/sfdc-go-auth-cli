@@ -38,9 +38,8 @@ type SalesforceOAuthResponse struct {
 }
 
 const (
-	salesforceAuthURL  = "https://login.salesforce.com/services/oauth2/authorize"
-	salesforceTokenURL = "https://login.salesforce.com/services/oauth2/token"
-	defaultPort        = "8080"
+	defaultSalesforceDomain = "login.salesforce.com"
+	defaultPort             = "8080"
 )
 
 var (
@@ -57,6 +56,7 @@ var (
 	flagClientID     string
 	flagClientSecret string
 	flagPort         string
+	flagDomain       string
 	flagQuiet        bool
 )
 
@@ -76,6 +76,7 @@ func init() {
 	rootCmd.Flags().StringVarP(&flagClientID, "client-id", "c", "", "Salesforce Client ID (Consumer Key)")
 	rootCmd.Flags().StringVarP(&flagClientSecret, "client-secret", "s", "", "Salesforce Client Secret (Consumer Secret)")
 	rootCmd.Flags().StringVarP(&flagPort, "port", "p", defaultPort, "Port for OAuth callback server")
+	rootCmd.Flags().StringVarP(&flagDomain, "domain", "d", defaultSalesforceDomain, "Salesforce domain (e.g., company.my.salesforce.com)")
 	rootCmd.Flags().BoolVarP(&flagQuiet, "quiet", "q", false, "Suppress informational output")
 }
 
@@ -107,6 +108,9 @@ func runAuth(cmd *cobra.Command, args []string) {
 		redirectURI = "http://localhost:" + flagPort + "/callback"
 	}
 
+	// Use domain flag (defaults to login.salesforce.com)
+	domain := flagDomain
+
 	// Generate state parameter for security
 	state = generateState()
 
@@ -127,7 +131,7 @@ func runAuth(cmd *cobra.Command, args []string) {
 	time.Sleep(100 * time.Millisecond)
 
 	// Build authorization URL
-	authURL := buildAuthURL()
+	authURL := buildAuthURL(domain)
 	if !flagQuiet {
 		fmt.Printf("\nPlease open the following URL in your browser to authenticate:\n%s\n", authURL)
 		fmt.Println("\nWaiting for OAuth callback...")
@@ -152,7 +156,7 @@ func runAuth(cmd *cobra.Command, args []string) {
 	}
 
 	// Exchange authorization code for tokens
-	tokenResponse, err := exchangeCodeForTokens(authCode)
+	tokenResponse, err := exchangeCodeForTokens(authCode, domain)
 	if err != nil {
 		log.Fatalf("Error exchanging code for tokens: %v", err)
 	}
@@ -217,7 +221,15 @@ func generateState() string {
 	return base64.URLEncoding.EncodeToString(b)
 }
 
-func buildAuthURL() string {
+func getSalesforceAuthURL(domain string) string {
+	return fmt.Sprintf("https://%s/services/oauth2/authorize", domain)
+}
+
+func getSalesforceTokenURL(domain string) string {
+	return fmt.Sprintf("https://%s/services/oauth2/token", domain)
+}
+
+func buildAuthURL(domain string) string {
 	params := url.Values{}
 	params.Add("response_type", "code")
 	params.Add("client_id", clientID)
@@ -225,7 +237,7 @@ func buildAuthURL() string {
 	params.Add("state", state)
 	params.Add("scope", "full refresh_token")
 
-	return salesforceAuthURL + "?" + params.Encode()
+	return getSalesforceAuthURL(domain) + "?" + params.Encode()
 }
 
 func handleCallback(w http.ResponseWriter, r *http.Request) {
@@ -271,7 +283,7 @@ func handleCallback(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func exchangeCodeForTokens(code string) (*SalesforceOAuthResponse, error) {
+func exchangeCodeForTokens(code, domain string) (*SalesforceOAuthResponse, error) {
 	data := url.Values{}
 	data.Set("grant_type", "authorization_code")
 	data.Set("client_id", clientID)
@@ -279,7 +291,7 @@ func exchangeCodeForTokens(code string) (*SalesforceOAuthResponse, error) {
 	data.Set("redirect_uri", redirectURI)
 	data.Set("code", code)
 
-	resp, err := http.PostForm(salesforceTokenURL, data)
+	resp, err := http.PostForm(getSalesforceTokenURL(domain), data)
 	if err != nil {
 		return nil, fmt.Errorf("error making token request: %v", err)
 	}
